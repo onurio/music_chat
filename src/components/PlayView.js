@@ -1,13 +1,31 @@
 import React,{useReducer,useState,useEffect} from 'react';
-// import Tone from 'tone';
+import Tone from 'tone';
 import Two from 'two.js';
 import {radToDeg,degToRad} from '../utils/utils';
 
 
 
 
+
+
+const waveform = new Tone.Analyser('waveform',1024);
+
+
+let Sampler = new Tone.Sampler({
+
+}).chain(waveform).toMaster();
+
+
+
+
+
+
+
+
 let wheels;
+let friendView;
 let two;
+let currentHexesGlobal = {};
 
 let wheelRange = {
     one: {
@@ -25,7 +43,7 @@ let wheelRange = {
 }
 
 
-function onStart ( e ) {
+function onStart ( e ) {    
     if( navigator.userAgent.match(/Android/i && e.target.id === 'two-1')) {
         e.preventDefault();
     }
@@ -33,12 +51,11 @@ function onStart ( e ) {
 
 
 export const PlayView=(props)=>{
-
-
-    const [rot,setRot] = useState(0);
+        const [currentHexes,setCurrentHexes] = useState({});
+        const [rot,setRot] = useState(0);
+    
 
     const handleMove=(e,wheelNum,angleComp,range)=>{    
-        e.preventDefault();    
         let rect = wheels[wheelNum].wheel._renderer.elem.getBoundingClientRect();    
         let touch = {x:e.changedTouches[0].clientX,y:e.changedTouches[0].clientY}
         let x = rect.width/2 + rect.x;
@@ -62,62 +79,163 @@ export const PlayView=(props)=>{
     }
 
 
+    const draw=()=> {
+        requestAnimationFrame(draw);
+        var waveArray = waveform.getValue();
+        // canvasCtx.fillStyle = 'rgb(0,0,0,0)';
+        // canvasCtx.lineWidth = 4;
+        // canvasCtx.clearRect(0, 0, window.innerWidth*2, window.innerHeight*2);
+        // canvasCtx.fillRect(0,0,window.innerWidth*2, window.innerHeight*2);
+        // canvasCtx.beginPath();
+        for (var i = 0; i < waveArray.length; i+=4) {
+          let x= (i/waveArray.length)*(window.innerWidth*2);
+          if (i === 0) {
+            // canvasCtx.moveTo(0,(window.innerHeight)+ waveArray[i]);
+          } else {
+            // canvasCtx.lineTo(x, (window.innerHeight)+waveArray[i]*(window.innerHeight));
+          }
+        }
+        // canvasCtx.strokeStyle = 'black';
+        // canvasCtx.stroke();
+      }
+
     
     
 
-    useEffect(()=>{        
-        if(two){
-            two.update();
-            
-        }
-    },[rot])
+    // useEffect(()=>{   
+           
+    //     if(two){
+                  
+    //     }
+    // },[rot])
 
     const updateSize=()=>{
         let elem = document.getElementById('canvas');
         let params = { fullscreen: true};
         let twoNew = new Two(params).appendTo(elem);
-        two = twoNew;
+        two = twoNew;        
 
         let ratio = window.devicePixelRatio;
         let width = two.width;
         let height = two.height;
         let bg = two.makeRectangle(0,0,width*ratio,height*ratio);
         bg.fill = 'white';
-        let wheel1 = makeHexWheel(two,0,0,width/10,width*0.25,height*0.875,0,width/2.3,6);
-        let wheel2 = makeHexWheel(two,0,0,width/10,width*0.75,height*0.875,-120,width/2.3,3);
-        let wheel3 = makeHexWheel(two,0,0,width/10,width*0.5,height*0.65,-60,width/2.3,10);
-
+        let wheel1 = makeHexWheel(two,0,0,width/10,width*0.25,height*0.875,0,width/2.6,6);
+        let wheel2 = makeHexWheel(two,0,0,width/10,width*0.75,height*0.875,-120,width/2.6,3);
+        let wheel3 = makeHexWheel(two,0,0,width/10,width*0.5,height*0.65,-60,width/2.6,10);
         wheels = {
             one: wheel1,
             two: wheel2,
             three: wheel3
         }
 
+
+
+        
         setTimeout(() => {
             addListeners('one',180);
             addListeners('two',-60);
             addListeners('three',-120);
-        },200)
+        },0)
 
 
-        const addListeners=(wheelNum,angleComp)=>{
-            let circle = wheels[wheelNum].circle._renderer.elem;
-            
-            let range =  wheelRange[wheelNum];
-            circle.ontouchstart = (e)=>handleMove(e,wheelNum,angleComp,range);
-            circle.ontouchmove = (e)=>handleMove(e,wheelNum,angleComp,range);
-            circle.ontouchend = (e)=>handleMove(e,wheelNum,angleComp,range);
-            let curve = wheels[wheelNum].curve._renderer.elem;
-            curve.ontouchstart = (e)=>handleMove(e,wheelNum,angleComp,range);
-            curve.ontouchmove = (e)=>handleMove(e,wheelNum,angleComp,range);
-            curve.ontouchend = (e)=>handleMove(e,wheelNum,angleComp,range);
-        }
+        let friendViewNew = renderFriend(twoNew,width/2,height/8,width/15);
+        friendView = friendViewNew;
+
         
 
 
-        two.update();
+        var waveArray = waveform.getValue();
+        let points =[];
+        for (var i = 0; i < waveArray.length; i+=4) {
+            let x= (i/waveArray.length)*(window.innerWidth*2);
+            if (i === 0) {
+                // points.push((window.innerHeight)+ waveArray[i]);
+                // two.makeCircle(x,(height/2) + waveArray[i],1);
+                points.push(new Two.Anchor(x,(height/2) + waveArray[i],Two.Commands.line));
+            } else {
+                // points.push((window.innerHeight)+waveArray[i]*(window.innerHeight));
+                // two.makeCircle(x,(height/2) + waveArray[i],1);
+                points.push(new Two.Anchor(x,(height/2) + waveArray[i],Two.Commands.line));
+            }
+        }
+
+        let bla = new Two.Path(points);
+        two.add(bla);
+
+            
+
+        two.bind('update', function(frameCount) {
+            var waveArray = waveform.getValue();
+            let points =[];
+            for (var i = 0; i < waveArray.length; i+=4) {
+                let x= (i/waveArray.length)*(window.innerWidth*2);
+                if (i === 0) {
+                    // points.push((window.innerHeight)+ waveArray[i]);
+                    // two.makeCircle(x,(height/2) + waveArray[i],1);
+                    points.push(new Two.Anchor(x,(height/2) + waveArray[i],Two.Commands.line));
+                } else {
+                    // points.push((window.innerHeight)+waveArray[i]*(window.innerHeight));
+                    // two.makeCircle(x,(height/2) + waveArray[i],1);
+                    points.push(new Two.Anchor(x,(height/4+height/4*Math.random()) + waveArray[i],Two.Commands.line));
+                }
+            }
+            bla.vertices = points;
+            // console.log(points);
+            
+            // canvasCtx.strokeStyle = 'black';
+            // canvasCtx.stroke();
+            
+        }).play();   
+        
     }
 
+
+
+    const addListeners=(wheelNum,angleComp)=>{
+        let range =  wheelRange[wheelNum];
+        const faderFunc =  (e)=>handleMove(e,wheelNum,angleComp,range);
+        const assignListeners =(elem) =>{
+            elem.ontouchstart = faderFunc;
+            elem.ontouchend = faderFunc;
+            elem.ontouchmove = faderFunc;
+        }
+        let circle = wheels[wheelNum].circle._renderer.elem;
+        let curve = wheels[wheelNum].curve._renderer.elem;
+        assignListeners(curve);
+        assignListeners(circle);
+        wheels[wheelNum].hexes.forEach((hex,index)=>hex._renderer.elem.ontouchstart = (e)=> handleClick(wheelNum,index));
+        
+    }
+
+    const handleClick =(wheelNum,hexNum)=>{
+        let otherHexes = [...wheels[wheelNum].hexes];
+        otherHexes.splice(hexNum,1);
+        otherHexes.forEach(hex=>hex.fill = 'white');      
+        let currentHexesNew = {};
+        currentHexesNew = currentHexes;  
+        
+        if(currentHexesGlobal[wheelNum] ===hexNum){
+            wheels[wheelNum].hexes[hexNum].fill = 'white';
+            currentHexesNew[wheelNum] = undefined;
+            setCurrentHexes(currentHexesNew);
+            
+        } else{
+            wheels[wheelNum].hexes[hexNum].fill = 'black';
+            currentHexesNew[wheelNum] = hexNum;
+            setCurrentHexes(currentHexesNew);
+        }
+                
+    }
+
+    const renderFriend=(two,x,y,r)=>{
+        let hex1 = two.makePolygon(x,y,r,6);
+        let hex2 = two.makePolygon(x - r*1.5,y-r*0.85,r,6);
+        let hex3 = two.makePolygon(x + r*1.5,y-r*0.85,r,6);
+        let hex4 = two.makePolygon(x,y - r*1.7,r,6);
+
+        return {hex1,hex2,hex3,hex4}
+    }
     
 
     const makeHexWheel =(two,x,y,r,gX,gY,rot,length,dashes)=>{
@@ -138,7 +256,7 @@ export const PlayView=(props)=>{
         curve.cap = 'rounded'
         curve.dashes[0] = dashes;
         curve.fill = 'transparent';
-        curve.translation.set(x+50,-r*0.8);
+        curve.translation.set(x+55,-r*0.85);
         curve.rotation = degToRad(60);
         let fader =  curve.clone();
         fader.linewidth = 3;
@@ -159,13 +277,11 @@ export const PlayView=(props)=>{
         wheel.translation.set(gX,gY);
         wheel.rotation = degToRad(rot);
 
-        return {wheel:wheel1,hex1,hex2,hex3,circle,curve,fader};
+        return {wheel:wheel1,hexes: [hex1,hex2,hex3],circle,curve,fader};
     }
 
 
-    useEffect(()=>{
-
-
+    useEffect(()=>{    
         window.addEventListener( "touchstart", function(e){ onStart(e); }, false );
         updateSize();
         window.addEventListener('resize',(e)=>{updateSize()});
