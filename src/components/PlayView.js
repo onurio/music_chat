@@ -1,58 +1,122 @@
-import React,{useReducer,useState,useEffect} from 'react';
+import React,{useState,useEffect} from 'react';
 import Tone from 'tone';
 import Two from 'two.js';
-import {radToDeg,degToRad} from '../utils/utils';
+import {radToDeg,degToRad,wheelRange,onStart} from '../utils/utils';
+import patterns from '../utils/patterns';
+import snare from '../audio/Snare.wav';
+import kick from '../audio/Kick.wav';
+import clap from '../audio/Clap.wav';
+import maracas from '../audio/Maracas.wav';
+import clave from '../audio/Clave.wav';
+import hihat from '../audio/Hihat.wav';
 
 
 
 
+const drawWave = ()=>{
+    var waveArray = waveform.getValue();
+    let points =[];
+    for (var i = 0; i < waveArray.length; i++) {
+    let x= (i/waveArray.length)*(window.innerWidth*2);            
+    if (i === 0) {
+        points.push(new Two.Anchor(x,(window.innerHeight/3.5) + waveArray[i]*70,Two.Commands.line));
+    } else {
+        points.push(new Two.Anchor(x,(window.innerHeight/3.5) + waveArray[i]*70,Two.Commands.line));
+        }
+    }    
+    return points;
+}
 
 
-const waveform = new Tone.Analyser('waveform',1024);
+let instruments = {
+    1: {
+        'one': 'snare',
+        'two': 'clave',
+        'three': 'maracas'
+    },
+    2: {
+        'one': 'hihat',
+        'two': 'kick',
+        'three': 'clap'
+    }
+}
 
 
-let Sampler = new Tone.Sampler({
 
-}).chain(waveform).toMaster();
-
+const waveform = new Tone.Analyser('waveform',128).toMaster();
 
 
+let mix = new Tone.Gain(0.5).connect(waveform);
 
+let pitchshift = new Tone.PitchShift(0).connect(mix);
+let feedbackDelay = new Tone.FeedbackDelay(0, 0.5).connect(mix);
+feedbackDelay.wet.value = 0.2;
+pitchshift.windowSize = 0.02;
+var dist = new Tone.Distortion(0).connect(mix);
+dist.wet.value = 0.5;
 
+let sampler = {
+    snare: new Tone.Sampler({"C3" : snare}).connect(pitchshift),
+    kick: new Tone.Sampler({"C3" : kick}).connect(dist),
+    clap: new Tone.Sampler({"C3" : clap}).connect(feedbackDelay),
+    hihat: new Tone.Sampler({"C3" : hihat}).connect(waveform),
+    clave: new Tone.Sampler({"C3" : clave}).connect(waveform),
+    maracas: new Tone.Sampler({"C3" : maracas}).connect(waveform)
+}
 
+sampler.snare.volume.value = 5;
+sampler.clap.volume.value = -7;
+sampler.hihat.volume.value = -7;
 
 
 let wheels;
 let friendView;
 let two;
-let currentHexesGlobal = {};
 
-let wheelRange = {
-    one: {
-        min: 60,
-        max: 180
-    },
-    two: {
-        min: 180,
-        max: 300
-    },
-    three: {
-        min: 120,
-        max: 240
-    }
+
+
+
+
+let seqs={
+    snare: new Tone.Sequence(function(time, note){
+            if(note === 1){
+                sampler.snare.triggerAttack('C3');
+            }
+        }, patterns.snare[1], '1:0:0' )
+    ,
+    kick: new Tone.Sequence(function(time, note){
+            if(note === 1){
+                sampler.kick.triggerAttack('C3');
+            }
+        }, patterns.kick[1], '1:0:0' )
+    ,
+    clap: new Tone.Sequence(function(time, note){
+            if(note === 1){
+                sampler.clap.triggerAttack('C3');
+            }
+        }, patterns.clap[1], '1:0:0' ),
+    clave: new Tone.Sequence(function(time, note){
+        if(note === 1){
+            sampler.clave.triggerAttack('C3');
+        }
+    }, patterns.clap[1], '1:0:0' ),
+    hihat: new Tone.Sequence(function(time, note){
+        if(note === 1){
+            sampler.hihat.triggerAttack('C3');
+        }
+    }, patterns.clap[1], '1:0:0' ),
+    maracas: new Tone.Sequence(function(time, note){
+        if(note === 1){
+            sampler.maracas.triggerAttack('C3');
+        }
+    }, patterns.clap[1], '1:0:0' )
 }
 
 
-function onStart ( e ) {    
-    if( navigator.userAgent.match(/Android/i && e.target.id === 'two-1')) {
-        e.preventDefault();
-    }
-}
 
 
 export const PlayView=(props)=>{
         const [currentHexes,setCurrentHexes] = useState({});
-        const [rot,setRot] = useState(0);
     
 
     const handleMove=(e,wheelNum,angleComp,range)=>{    
@@ -72,44 +136,37 @@ export const PlayView=(props)=>{
             wheels[wheelNum].wheel.rotation = degToRad(angleComp) - result;
             let effect = Math.abs(1-(resultDeg - range.min)/120);
             wheels[wheelNum].fader.ending = effect;
-            setRot(effect);
+            switch(wheelNum){
+                case 'one': 
+                    // feedbackDelay.delayTime.value = effect;  
+                    props.socket.emit('clFx',{index: 'one',amount: effect}); 
+                    pitchshift.pitch = effect*20-10;   
+                    break;
+                case 'two':
+                    props.socket.emit('clFx',{index: 'two',amount: effect}); 
+                    dist.distortion = effect
+                    break;
+                case 'three':
+                    props.socket.emit('clFx',{index: 'three',amount: effect}); 
+                    feedbackDelay.delayTime.value = effect*0.05;
+                    break;
+                default:
+                    return;
+            }
 
         }
+
+        
+
+        
         
     }
-
-
-    const draw=()=> {
-        requestAnimationFrame(draw);
-        var waveArray = waveform.getValue();
-        // canvasCtx.fillStyle = 'rgb(0,0,0,0)';
-        // canvasCtx.lineWidth = 4;
-        // canvasCtx.clearRect(0, 0, window.innerWidth*2, window.innerHeight*2);
-        // canvasCtx.fillRect(0,0,window.innerWidth*2, window.innerHeight*2);
-        // canvasCtx.beginPath();
-        for (var i = 0; i < waveArray.length; i+=4) {
-          let x= (i/waveArray.length)*(window.innerWidth*2);
-          if (i === 0) {
-            // canvasCtx.moveTo(0,(window.innerHeight)+ waveArray[i]);
-          } else {
-            // canvasCtx.lineTo(x, (window.innerHeight)+waveArray[i]*(window.innerHeight));
-          }
-        }
-        // canvasCtx.strokeStyle = 'black';
-        // canvasCtx.stroke();
-      }
-
     
-    
-
-    // useEffect(()=>{   
-           
-    //     if(two){
-                  
-    //     }
-    // },[rot])
 
     const updateSize=()=>{
+        Tone.Transport.loopEnd = '4m'
+        Tone.Transport.loop = true
+        Tone.Transport.start();
         let elem = document.getElementById('canvas');
         let params = { fullscreen: true};
         let twoNew = new Two(params).appendTo(elem);
@@ -123,69 +180,37 @@ export const PlayView=(props)=>{
         let wheel1 = makeHexWheel(two,0,0,width/10,width*0.25,height*0.875,0,width/2.6,6);
         let wheel2 = makeHexWheel(two,0,0,width/10,width*0.75,height*0.875,-120,width/2.6,3);
         let wheel3 = makeHexWheel(two,0,0,width/10,width*0.5,height*0.65,-60,width/2.6,10);
+        two.makeLine(0,height*0.17,width,height*0.17);
+        two.makeLine(0,height*0.4,width,height*0.4);
+
+        // let friendViewNew = renderFriend(twoNew,width/2,height/8,width/15);
+        let wheel4 = makeFriendHexWheel(two,0,0,width/22,width*0.25,height*0.1,0,width/6,3);
+        let wheel5 = makeFriendHexWheel(two,0,0,width/22,width*0.5,height*0.1,0,width/6,3);
+        let wheel6 = makeFriendHexWheel(two,0,0,width/22,width*0.75,height*0.1,0,width/6,3);
+        friendView = {one: wheel4,two: wheel5,three: wheel6};
+
         wheels = {
             one: wheel1,
             two: wheel2,
             three: wheel3
         }
 
-
-
-        
         setTimeout(() => {
             addListeners('one',180);
             addListeners('two',-60);
             addListeners('three',-120);
         },0)
 
-
-        let friendViewNew = renderFriend(twoNew,width/2,height/8,width/15);
-        friendView = friendViewNew;
-
         
 
 
-        var waveArray = waveform.getValue();
-        let points =[];
-        for (var i = 0; i < waveArray.length; i+=4) {
-            let x= (i/waveArray.length)*(window.innerWidth*2);
-            if (i === 0) {
-                // points.push((window.innerHeight)+ waveArray[i]);
-                // two.makeCircle(x,(height/2) + waveArray[i],1);
-                points.push(new Two.Anchor(x,(height/2) + waveArray[i],Two.Commands.line));
-            } else {
-                // points.push((window.innerHeight)+waveArray[i]*(window.innerHeight));
-                // two.makeCircle(x,(height/2) + waveArray[i],1);
-                points.push(new Two.Anchor(x,(height/2) + waveArray[i],Two.Commands.line));
-            }
-        }
-
-        let bla = new Two.Path(points);
-        two.add(bla);
+        let wave = new Two.Path(drawWave());
+        two.add(wave);
 
             
 
-        two.bind('update', function(frameCount) {
-            var waveArray = waveform.getValue();
-            let points =[];
-            for (var i = 0; i < waveArray.length; i+=4) {
-                let x= (i/waveArray.length)*(window.innerWidth*2);
-                if (i === 0) {
-                    // points.push((window.innerHeight)+ waveArray[i]);
-                    // two.makeCircle(x,(height/2) + waveArray[i],1);
-                    points.push(new Two.Anchor(x,(height/2) + waveArray[i],Two.Commands.line));
-                } else {
-                    // points.push((window.innerHeight)+waveArray[i]*(window.innerHeight));
-                    // two.makeCircle(x,(height/2) + waveArray[i],1);
-                    points.push(new Two.Anchor(x,(height/4+height/4*Math.random()) + waveArray[i],Two.Commands.line));
-                }
-            }
-            bla.vertices = points;
-            // console.log(points);
-            
-            // canvasCtx.strokeStyle = 'black';
-            // canvasCtx.stroke();
-            
+        two.bind('update', function(frameCount) {            
+            wave.vertices = drawWave(); 
         }).play();   
         
     }
@@ -206,35 +231,91 @@ export const PlayView=(props)=>{
         assignListeners(circle);
         wheels[wheelNum].hexes.forEach((hex,index)=>hex._renderer.elem.ontouchstart = (e)=> handleClick(wheelNum,index));
         
-    }
+    };
 
-    const handleClick =(wheelNum,hexNum)=>{
+    
+
+    const changeSequence=(sample,pattern,start)=>{
+        let seq = seqs[sample];
+        seq.dispose();
+        seq = new Tone.Sequence(function(time, note){
+            if(note === 1){
+                sampler[sample].triggerAttack('C3');
+            }
+        }, patterns[sample][pattern + 1], '1m' );
+        seqs[sample] = seq;
+        start?seq.start(0):seq.stop();
+    };
+
+
+
+    const changeHex =(wheels,wheelNum,hexNum)=> {
         let otherHexes = [...wheels[wheelNum].hexes];
         otherHexes.splice(hexNum,1);
         otherHexes.forEach(hex=>hex.fill = 'white');      
         let currentHexesNew = {};
         currentHexesNew = currentHexes;  
+        let start=true;
         
-        if(currentHexesGlobal[wheelNum] ===hexNum){
-            wheels[wheelNum].hexes[hexNum].fill = 'white';
+        if(currentHexes[wheelNum] ===hexNum){
+            wheels[wheelNum].hexes[hexNum].fill = 'white';            
             currentHexesNew[wheelNum] = undefined;
             setCurrentHexes(currentHexesNew);
+            start=false;
             
         } else{
             wheels[wheelNum].hexes[hexNum].fill = 'black';
             currentHexesNew[wheelNum] = hexNum;
             setCurrentHexes(currentHexesNew);
         }
-                
+
+        return start;
     }
 
-    const renderFriend=(two,x,y,r)=>{
-        let hex1 = two.makePolygon(x,y,r,6);
-        let hex2 = two.makePolygon(x - r*1.5,y-r*0.85,r,6);
-        let hex3 = two.makePolygon(x + r*1.5,y-r*0.85,r,6);
-        let hex4 = two.makePolygon(x,y - r*1.7,r,6);
+    const handleClick =(wheelNum,hexNum)=>{        
+        let start = changeHex(wheels,wheelNum,hexNum);
+        changeSequence(instruments[props.player][wheelNum],hexNum,start);
+        props.socket.emit('clSeq',{wheel: wheelNum,hex: hexNum,start});   
+    }
 
-        return {hex1,hex2,hex3,hex4}
+
+    const makeFriendHexWheel =(two,x,y,r,gX,gY,rot,length,dashes)=>{
+        let curve = two.makeCurve(
+            x - length/2,y,
+            x - length/2.5,y-length/8,
+            x - length/3,y-length/5.75,
+            x - length/4,y-length/4.5,
+            x,y - length/3.6,
+            x + length/4,y-length/4.5,
+            x + length/3,y-length/5.75,
+            x + length/2.5,y-length/8,
+            x + length/2,y,
+            true);
+        curve.linewidth = 1;
+        curve.cap = 'rounded'
+        curve.dashes[0] = dashes;
+        curve.fill = 'transparent';
+        curve.translation.set(x+r*1.6,-r*0.85);
+        curve.rotation = degToRad(60);
+        let fader =  curve.clone();
+        fader.linewidth = 3;
+        curve.opacity = 0.5;
+        fader.ending = 0;
+        
+  
+      
+        let hex1 = two.makePolygon(x+r/1.135 -1,r/2+y,r,6);
+        hex1.rotation = 1.5708;
+        let hex2 = two.makePolygon(x -r/1.135 + 1,r/2+y,r,6);
+        hex2.rotation = 1.5708;
+        let hex3 = two.makePolygon(x,-r,r,6);
+        hex3.rotation = 1.5708;
+        let wheel1 = two.makeGroup(hex1,hex2,hex3)
+        let wheel = two.makeGroup(wheel1,fader,curve);        
+        wheel.translation.set(gX,gY);
+        wheel.rotation = degToRad(rot);
+
+        return {wheel:wheel1,hexes: [hex1,hex2,hex3],curve,fader};
     }
     
 
@@ -281,10 +362,31 @@ export const PlayView=(props)=>{
     }
 
 
+
     useEffect(()=>{    
         window.addEventListener( "touchstart", function(e){ onStart(e); }, false );
         updateSize();
         window.addEventListener('resize',(e)=>{updateSize()});
+        props.socket.on('clFx',(msg)=>{
+            friendView[msg.index].fader.ending = msg.amount;
+            friendView[msg.index].wheel.rotation = degToRad(msg.amount*120);
+        });
+        props.socket.on('clSeq',(msg)=>{
+            let start = changeHex(friendView,msg.wheel,msg.hex);
+
+            switch (props.player) {
+                case 2:
+                    changeSequence(instruments[1][msg.wheel],msg.hex,start);
+                    break;
+                case 1:
+                    changeSequence(instruments[2][msg.wheel],msg.hex,start);
+                    break;
+                default:
+                    return;
+            }
+            
+        });        
+
         return(()=>{
             window.removeEventListener('resize',updateSize());
         });
