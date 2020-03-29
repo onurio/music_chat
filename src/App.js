@@ -11,9 +11,7 @@ import { EnterRoom } from './components/EnterRoom';
 const socketURL = 'http://192.168.1.5:4000/';
 
 function App() {
-  const [socket,setSocket] = useState(null);
-  console.log('something');
-  
+  const [socket,setSocket] = useState(null);  
   const [player,setPlayer] = useState(1);
 
   useEffect(()=>{

@@ -14,3 +14,19 @@
   min-height: 100%;
   width: 100vw;
 }
+
+
+.wheel{
+  opacity: 0.5;
+  transition: .5s;
+  pointer-events: none;
+}
+
+.wheel.on{
+  opacity: 1;
+  pointer-events: all;
+}
+
+.wheel.on.set{
+  transition: 0.15s;
+}
