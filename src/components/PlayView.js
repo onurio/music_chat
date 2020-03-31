@@ -37,19 +37,6 @@ let instruments = {
     }
 }
 
-let instToSamp = {
-    1: {
-        'snare': 'one',
-        'clave': 'two',
-        'maracas': 'three'
-    },
-    2: {
-        'hihat': 'one',
-        'kick': 'two',
-        'clap': 'three'
-    }
-}
-
 
 
 const waveform = new Tone.Analyser('waveform',512).toMaster();
@@ -140,19 +127,17 @@ export const PlayView=(props)=>{
             wheels[0][wheelNum].wheel.rotation = degToRad(angleComp) - result;
             let effect = Math.abs(1-(resultDeg - range.min)/120);
             wheels[0][wheelNum].fader.ending = effect;
+
+            changeEffect({index: wheelNum,amount: effect},true);
             switch(wheelNum){
                 case 'one': 
-                    // feedbackDelay.delayTime.value = effect;  
                     props.socket.emit('clFx',{index: 'one',amount: effect}); 
-                    pitchshift.pitch = effect*20-10;   
                     break;
                 case 'two':
                     props.socket.emit('clFx',{index: 'two',amount: effect}); 
-                    dist.distortion = effect
                     break;
                 case 'three':
                     props.socket.emit('clFx',{index: 'three',amount: effect}); 
-                    feedbackDelay.delayTime.value = effect*0.05;
                     break;
                 default:
                     return;
@@ -258,10 +243,10 @@ export const PlayView=(props)=>{
         let sample = instruments[player][wheelNum];        
         let seq = seqs[sample];
         seq.dispose();        
-        // `+${((Math.random()*0.02)+0.05)}`
+        
         seq = new Tone.Sequence(function(time, note){
             if(note === 1){
-                sampler[sample].triggerAttack('C3','+0.05');
+                sampler[sample].triggerAttack('C3',`+${((Math.random()*0.02)+0.05)}`);
                 Tone.Draw.schedule(function(){
 
                     let curentDraw = player===props.player?1:2;
@@ -438,11 +423,43 @@ export const PlayView=(props)=>{
         // eslint-disable-next-line
     },[]);
 
+    const changeEffect=(msg,isSelf)=>{
+        if(typeof props.player === 'number'){
+            // console.log(isSelf);
+            let id = isSelf?2:1;
+            if(props.player === id){
+                switch(instruments[2][msg.index]){
+                    case 'clap':
+                        reverb.wet.value = msg.amount;
+                        break;
+                    case 'kick':
+                        dist.distortion = msg.amount;
+                        break;
+                    default:
+                        console.log(instruments[2][msg.index]);
+                        break;
+                        
+                }
+            } else{
+                switch(instruments[1][msg.index]){
+                    case 'snare':
+                        pitchshift.pitch = msg.amount*20-10;
+                        break;
+                    default:
+                        console.log(instruments[1][msg.index]);    
+                        break;
+                }
+            }
+            
+        }
+    }
+
     useEffect(()=>{
         if(props.socket!==null){
             props.socket.on('clFx',(msg)=>{
                 wheels[1][msg.index].fader.ending = msg.amount;
                 wheels[1][msg.index].wheel.rotation = degToRad(msg.amount*120);
+                changeEffect(msg,false);
             });
             props.socket.on('clSeq',(msg)=>{                                                
                 let start = changeHex(wheels[1],msg.wheel,msg.hex);
