@@ -24,7 +24,7 @@ export const WaitRoom=props=>{
         document.body.removeChild(el);
       
         /* Alert the copied text */
-        alert("Copied the text: " + link.current.innerText);
+        // alert("Copied the text: " + link.current.innerText);
     }
 
 

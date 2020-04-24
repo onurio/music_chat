@@ -47,6 +47,7 @@ let mix = new Tone.Gain(0.5).connect(waveform);
 let pitchshift = new Tone.PitchShift(0).connect(mix);
 let feedbackDelay = new Tone.FeedbackDelay(0, 0.5).connect(mix);
 let reverb = new Tone.Reverb().connect(mix);
+reverb.wet.value = 0;
 reverb.generate();
 feedbackDelay.wet.value = 0.2;
 pitchshift.windowSize = 0.02;
@@ -166,16 +167,10 @@ export const PlayView=(props)=>{
         two.makeLine(0,height*0.17,width,height*0.17);
         two.makeLine(0,height*0.4,width,height*0.4);
 
-        // let friendViewNew = renderFriend(twoNew,width/2,height/8,width/15);
         let wheel4 = makeFriendHexWheel(two,0,0,width/22,width*0.25,height*0.1,0,width/6,3);
         let wheel5 = makeFriendHexWheel(two,0,0,width/22,width*0.5,height*0.1,0,width/6,3);
         let wheel6 = makeFriendHexWheel(two,0,0,width/22,width*0.75,height*0.1,0,width/6,3);
-        // friendView = {one: wheel4,two: wheel5,three: wheel6};
-        // wheels = {
-        //     one: wheel1,
-        //     two: wheel2,
-        //     three: wheel3
-        // }
+
 
         wheels = [
             {
@@ -198,10 +193,7 @@ export const PlayView=(props)=>{
             wheels[0]['one'].opacity = 1;
             wheels[0]['two'].opacity = 1;
             wheels[0]['three'].opacity = 1;
-        },1000);
-
-        
-
+        },3000);
 
 
         let wave = new Two.Path(drawWave());
@@ -214,7 +206,6 @@ export const PlayView=(props)=>{
         }).play();   
         
     }
-
 
 
     const addListeners=(wheelNum,angleComp)=>{
@@ -246,7 +237,7 @@ export const PlayView=(props)=>{
         
         seq = new Tone.Sequence(function(time, note){
             if(note === 1){
-                sampler[sample].triggerAttack('C3',`+${((Math.random()*0.02)+0.05)}`);
+                sampler[sample].triggerAttack('C3',`+${((Math.random()*0.00)+0.05)}`);
                 Tone.Draw.schedule(function(){
 
                     let curentDraw = player===props.player?1:2;
@@ -386,26 +377,13 @@ export const PlayView=(props)=>{
         wheel.translation.set(gX,gY);
         wheel.rotation = degToRad(rot);
         wheel1.opacity = 0.5;
-        // setTimeout(()=>{
-        //     let interval = setInterval(()=>{
-        //         let op = wheel1.opacity+0.025;
-        //         if(op>1){
-        //             wheel1.opacity = 1;
-        //             clearInterval(interval);
-        //         }else{
-        //             wheel1.opacity = op;
-        //         }
-        //     },1);
-            
-        // },2000);
+
         setTimeout(() => {
             wheel1._renderer.elem.classList.add('wheel');
             wheel1.opacity = 1;
-            setTimeout(() => {
-                wheel1._renderer.elem.classList.add('on');
-                wheel1._renderer.elem.classList.add('set');
-            }, 2000);
-        }, 0);
+            wheel1._renderer.elem.classList.add('on');
+            wheel1._renderer.elem.classList.add('set');
+        }, 3000);
         
 
         return {wheel:wheel1,hexes: [hex1,hex2,hex3],circle,curve,fader,beat};
