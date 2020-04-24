@@ -379,11 +379,13 @@ export const PlayView=(props)=>{
         wheel1.opacity = 0.5;
 
         setTimeout(() => {
-            wheel1._renderer.elem.classList.add('wheel');
-            wheel1.opacity = 1;
-            wheel1._renderer.elem.classList.add('on');
-            wheel1._renderer.elem.classList.add('set');
-        }, 3000);
+            setTimeout(() => {
+                wheel1._renderer.elem.classList.add('wheel');
+                wheel1.opacity = 1;
+                wheel1._renderer.elem.classList.add('on');
+                wheel1._renderer.elem.classList.add('set');
+            }, 2000);
+        }, 1000);
         
 
         return {wheel:wheel1,hexes: [hex1,hex2,hex3],circle,curve,fader,beat};
