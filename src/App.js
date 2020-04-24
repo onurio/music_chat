@@ -8,7 +8,7 @@ import { EnterRoom } from './components/EnterRoom';
 
 
 
-const socketURL = 'http://192.168.1.5:4000/';
+const socketURL = '/';
 
 function App() {
   const [socket,setSocket] = useState(null);  
