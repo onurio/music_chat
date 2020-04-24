@@ -27,12 +27,12 @@ export const WaitRoom=props=>{
         // alert("Copied the text: " + link.current.innerText);
     }
 
-
+http://192.168.1.5:3000/join/4fa5f243
     return(
         <div className='main'>
             <div>
                 <h1 style={{marginBottom:'10vmin'}}>send this link to your FRIEND:</h1>
-                <h4  ref={link}>http://192.168.1.5:3000/join/{props.id}</h4>
+                <h4  ref={link}>https://safe-wave-00463.herokuapp.com/join/{props.id}</h4>
                 <button  onClick={copyLink} style={{backgroundColor:'black',color:'white',marginBottom:'10vmin',fontSize:'5vmin',padding:'2vmin',borderRadius:100,border:'2px solid black' }}>COPY LINK!</button>
                 <h3>Waiting for your friend to join!</h3>
             </div>
